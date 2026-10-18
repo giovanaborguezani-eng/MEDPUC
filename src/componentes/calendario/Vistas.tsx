@@ -11,7 +11,9 @@ import {
   NOMES_DIAS_CURTOS,
   paraISO,
 } from '../../lib/datas';
+import { comTransparencia } from '../../lib/cores';
 import { ChipItem, LinhaItem } from './ChipItem';
+import { distribuirBlocos, posicaoHorizontal } from './grade';
 import type { ItemCalendario } from './itens';
 
 type PropsVista = {
@@ -175,17 +177,22 @@ function faixaNoPonto(x: number, y: number): number | null {
   return elemento ? Number(elemento.dataset.faixa) : null;
 }
 
+/** Altura de 1 hora na grade do dia, em pixels (30 minutos = metade). */
+const ALTURA_HORA = 48;
+
 export function VistaDia({ referencia, porDia, aoAbrir, aoNovo }: Omit<PropsVista, 'aoIrParaDia'>) {
   const data = paraISO(referencia);
   const itens = porDia.get(data) ?? [];
   const semHorario = itens.filter((i) => !i.hora);
-  const comHorario = itens.filter((i) => i.hora);
-  const horas = new Set(comHorario.map((i) => Number(i.hora!.slice(0, 2))));
-  const inicio = Math.min(7, ...horas);
-  const fim = Math.max(22, ...horas);
+  const blocos = distribuirBlocos(itens);
+  const inicio = Math.min(7, ...blocos.map((b) => Math.floor(b.inicio / 60)));
+  const fim = Math.min(23, Math.max(22, ...blocos.map((b) => Math.ceil(b.fim / 60) - 1)));
+  const horas = Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i);
   const [selecao, setSelecao] = useState<Selecao | null>(null);
   const menor = selecao ? Math.min(selecao.inicio, selecao.fim) : -1;
   const maior = selecao ? Math.max(selecao.inicio, selecao.fim) : -1;
+  const ultimaSelecionada = menor === maior ? menor + 1 : maior;
+  const topo = (minuto: number) => ((minuto - inicio * 60) / 60) * ALTURA_HORA;
 
   // Como no Google Agenda: clicar cria 1 hora; arrastar escolhe o intervalo.
   // No celular, arrastar rola a tela (pointercancel) e só o toque cria.
@@ -229,53 +236,77 @@ export function VistaDia({ referencia, porDia, aoAbrir, aoNovo }: Omit<PropsVist
           )}
         </div>
       </div>
-      <ol className="select-none">
-        {Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i).map((hora) => {
-          const daHora = comHorario.filter((item) => Number(item.hora!.slice(0, 2)) === hora);
-          const rotulo = horarioDaFaixa(hora * 2);
-          return (
-            <li key={hora} className="group flex min-h-12 gap-3 border-b border-stone-50 px-3 last:border-b-0">
-              <span className="w-14 shrink-0 pt-3 text-right text-xs text-stone-500 tabular-nums">{rotulo}</span>
-              <div className="relative flex-1 py-1.5">
-                {[0, 1].map((meia) => {
-                  const faixa = hora * 2 + meia;
-                  const marcada = faixa >= menor && faixa <= maior;
-                  return (
-                    <div
-                      key={meia}
-                      aria-hidden
-                      data-faixa={faixa}
-                      onPointerDown={(e) => iniciarSelecao(e, faixa)}
-                      className={`absolute inset-x-0 h-1/2 cursor-pointer rounded-md ${meia ? 'top-1/2' : 'top-0'} ${
-                        marcada ? 'bg-vinho-100' : 'hover:bg-stone-50'
-                      }`}
-                    >
-                      {faixa === menor && (
-                        <span className="block px-2 pt-0.5 text-xs font-medium text-vinho-800 tabular-nums">
-                          {horarioDaFaixa(menor)} – {horarioDaFaixa(menor === maior ? menor + 2 : maior + 1)}
-                        </span>
-                      )}
-                    </div>
-                  );
-                })}
-                <div className="pointer-events-none relative space-y-1.5 *:pointer-events-auto">
-                  {daHora.map((item) => (
-                    <LinhaItem key={`${item.tipo}-${item.id}`} item={item} aoAbrir={aoAbrir} />
-                  ))}
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => aoNovo(data, rotulo, horarioDaFaixa(hora * 2 + 2))}
-                aria-label={`Novo evento às ${rotulo}`}
-                className="mt-1.5 flex size-7 items-center justify-center rounded-md text-stone-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-stone-100 hover:text-stone-700 focus:opacity-100"
-              >
-                <Plus aria-hidden className="size-4" />
-              </button>
+      <div className="flex gap-3 px-3 py-3 select-none">
+        <ol className="w-14 shrink-0" aria-hidden>
+          {horas.map((hora) => (
+            <li key={hora} className="text-right text-xs text-stone-500 tabular-nums" style={{ height: ALTURA_HORA }}>
+              <span className="relative -top-2">{horarioDaFaixa(hora * 2)}</span>
             </li>
-          );
-        })}
-      </ol>
+          ))}
+        </ol>
+        <div className="relative flex-1" style={{ height: horas.length * ALTURA_HORA }}>
+          {horas.map((hora) =>
+            [0, 1].map((meia) => {
+              const faixa = hora * 2 + meia;
+              return (
+                <div
+                  key={faixa}
+                  aria-hidden
+                  data-faixa={faixa}
+                  onPointerDown={(e) => iniciarSelecao(e, faixa)}
+                  className={`cursor-pointer hover:bg-stone-50 ${meia ? 'border-b border-stone-100' : 'border-b border-dashed border-stone-50'}`}
+                  style={{ height: ALTURA_HORA / 2 }}
+                />
+              );
+            }),
+          )}
+
+          {selecao && (
+            <div
+              className="pointer-events-none absolute inset-x-0 z-20 rounded-md border border-vinho-300 bg-vinho-100/90 px-2 py-0.5 text-xs font-medium text-vinho-800 tabular-nums"
+              style={{ top: topo(menor * 30), height: (ultimaSelecionada - menor + 1) * (ALTURA_HORA / 2) }}
+            >
+              {horarioDaFaixa(menor)} – {horarioDaFaixa(ultimaSelecionada + 1)}
+            </div>
+          )}
+
+          <div className="pointer-events-none absolute inset-y-0 right-2 left-0">
+            {blocos.map((bloco) => {
+              const { esquerda, largura } = posicaoHorizontal(bloco);
+              const altura = topo(bloco.fim) - topo(bloco.inicio);
+              const { item } = bloco;
+              return (
+                <button
+                  key={item.id}
+                  type="button"
+                  onClick={() => aoAbrir(item)}
+                  title={`${item.titulo} — ${item.detalhe}`}
+                  aria-label={`${item.titulo}, ${item.detalhe}`}
+                  className="pointer-events-auto absolute overflow-hidden rounded-lg px-2 py-1 text-left ring-1 ring-white transition-[filter] hover:brightness-95"
+                  style={{
+                    top: topo(bloco.inicio) + 1,
+                    height: altura - 2,
+                    left: `${esquerda * 100}%`,
+                    width: `${largura * 100}%`,
+                    zIndex: 10 + bloco.coluna,
+                    // Fundo opaco: quando um evento cobre outro, o de baixo não aparece através.
+                    backgroundColor: 'white',
+                    backgroundImage: `linear-gradient(${comTransparencia(item.cor, 0.16)}, ${comTransparencia(item.cor, 0.16)})`,
+                    boxShadow: `inset 3px 0 0 ${item.cor}`,
+                  }}
+                >
+                  <span
+                    className={`block truncate text-sm leading-5 font-medium text-stone-800 ${item.riscado ? 'line-through opacity-60' : ''}`}
+                  >
+                    {item.titulo}
+                  </span>
+                  {altura >= 44 && <span className="block truncate text-xs text-stone-500">{item.detalhe}</span>}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
