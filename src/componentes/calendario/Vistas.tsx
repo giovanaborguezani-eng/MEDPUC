@@ -1,4 +1,5 @@
 import { Plus } from 'lucide-react';
+import { useState, type PointerEvent as EventoPonteiro } from 'react';
 import {
   deISO,
   diasDaSemana,
@@ -17,7 +18,7 @@ type PropsVista = {
   referencia: Date;
   porDia: Map<string, ItemCalendario[]>;
   aoAbrir: (item: ItemCalendario) => void;
-  aoNovo: (data: string, hora?: string) => void;
+  aoNovo: (data: string, hora?: string, horaFim?: string) => void;
   aoIrParaDia: (data: string) => void;
 };
 
@@ -161,6 +162,19 @@ export function VistaSemana({ referencia, porDia, aoAbrir, aoNovo, aoIrParaDia }
   );
 }
 
+type Selecao = { inicio: number; fim: number };
+
+/** Faixas de 30 minutos: 0 = 00:00, 1 = 00:30 … 48 = fim do dia. */
+function horarioDaFaixa(faixa: number): string {
+  if (faixa >= 48) return '23:59';
+  return `${String(Math.floor(faixa / 2)).padStart(2, '0')}:${faixa % 2 ? '30' : '00'}`;
+}
+
+function faixaNoPonto(x: number, y: number): number | null {
+  const elemento = document.elementFromPoint?.(x, y)?.closest<HTMLElement>('[data-faixa]');
+  return elemento ? Number(elemento.dataset.faixa) : null;
+}
+
 export function VistaDia({ referencia, porDia, aoAbrir, aoNovo }: Omit<PropsVista, 'aoIrParaDia'>) {
   const data = paraISO(referencia);
   const itens = porDia.get(data) ?? [];
@@ -169,6 +183,39 @@ export function VistaDia({ referencia, porDia, aoAbrir, aoNovo }: Omit<PropsVist
   const horas = new Set(comHorario.map((i) => Number(i.hora!.slice(0, 2))));
   const inicio = Math.min(7, ...horas);
   const fim = Math.max(22, ...horas);
+  const [selecao, setSelecao] = useState<Selecao | null>(null);
+  const menor = selecao ? Math.min(selecao.inicio, selecao.fim) : -1;
+  const maior = selecao ? Math.max(selecao.inicio, selecao.fim) : -1;
+
+  // Como no Google Agenda: clicar cria 1 hora; arrastar escolhe o intervalo.
+  // No celular, arrastar rola a tela (pointercancel) e só o toque cria.
+  function iniciarSelecao(e: EventoPonteiro, faixa: number) {
+    if (e.button > 0) return;
+    e.preventDefault();
+    let atual = faixa;
+    setSelecao({ inicio: faixa, fim: faixa });
+
+    function mover(ev: PointerEvent) {
+      const sob = faixaNoPonto(ev.clientX, ev.clientY);
+      if (sob !== null && sob !== atual) {
+        atual = sob;
+        setSelecao({ inicio: faixa, fim: sob });
+      }
+    }
+    function encerrar(ev: PointerEvent) {
+      window.removeEventListener('pointermove', mover);
+      window.removeEventListener('pointerup', encerrar);
+      window.removeEventListener('pointercancel', encerrar);
+      setSelecao(null);
+      if (ev.type === 'pointercancel') return;
+      const de = Math.min(faixa, atual);
+      const ate = atual === faixa ? faixa + 2 : Math.max(faixa, atual) + 1;
+      aoNovo(data, horarioDaFaixa(de), horarioDaFaixa(ate));
+    }
+    window.addEventListener('pointermove', mover);
+    window.addEventListener('pointerup', encerrar);
+    window.addEventListener('pointercancel', encerrar);
+  }
 
   return (
     <div className="rounded-2xl border border-stone-200 bg-white shadow-cartao">
@@ -182,23 +229,46 @@ export function VistaDia({ referencia, porDia, aoAbrir, aoNovo }: Omit<PropsVist
           )}
         </div>
       </div>
-      <ol>
+      <ol className="select-none">
         {Array.from({ length: fim - inicio + 1 }, (_, i) => inicio + i).map((hora) => {
           const daHora = comHorario.filter((item) => Number(item.hora!.slice(0, 2)) === hora);
-          const rotulo = `${String(hora).padStart(2, '0')}:00`;
+          const rotulo = horarioDaFaixa(hora * 2);
           return (
-            <li key={hora} className="group flex min-h-12 items-start gap-3 border-b border-stone-50 px-3 py-1.5 last:border-b-0">
-              <span className="w-14 shrink-0 pt-1.5 text-right text-xs text-stone-500 tabular-nums">{rotulo}</span>
-              <div className="flex-1 space-y-1.5">
-                {daHora.map((item) => (
-                  <LinhaItem key={`${item.tipo}-${item.id}`} item={item} aoAbrir={aoAbrir} />
-                ))}
+            <li key={hora} className="group flex min-h-12 gap-3 border-b border-stone-50 px-3 last:border-b-0">
+              <span className="w-14 shrink-0 pt-3 text-right text-xs text-stone-500 tabular-nums">{rotulo}</span>
+              <div className="relative flex-1 py-1.5">
+                {[0, 1].map((meia) => {
+                  const faixa = hora * 2 + meia;
+                  const marcada = faixa >= menor && faixa <= maior;
+                  return (
+                    <div
+                      key={meia}
+                      aria-hidden
+                      data-faixa={faixa}
+                      onPointerDown={(e) => iniciarSelecao(e, faixa)}
+                      className={`absolute inset-x-0 h-1/2 cursor-pointer rounded-md ${meia ? 'top-1/2' : 'top-0'} ${
+                        marcada ? 'bg-vinho-100' : 'hover:bg-stone-50'
+                      }`}
+                    >
+                      {faixa === menor && (
+                        <span className="block px-2 pt-0.5 text-xs font-medium text-vinho-800 tabular-nums">
+                          {horarioDaFaixa(menor)} – {horarioDaFaixa(menor === maior ? menor + 2 : maior + 1)}
+                        </span>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="pointer-events-none relative space-y-1.5 *:pointer-events-auto">
+                  {daHora.map((item) => (
+                    <LinhaItem key={`${item.tipo}-${item.id}`} item={item} aoAbrir={aoAbrir} />
+                  ))}
+                </div>
               </div>
               <button
                 type="button"
-                onClick={() => aoNovo(data, rotulo)}
+                onClick={() => aoNovo(data, rotulo, horarioDaFaixa(hora * 2 + 2))}
                 aria-label={`Novo evento às ${rotulo}`}
-                className="flex size-7 items-center justify-center rounded-md text-stone-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-stone-100 hover:text-stone-700 focus:opacity-100"
+                className="mt-1.5 flex size-7 items-center justify-center rounded-md text-stone-300 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-stone-100 hover:text-stone-700 focus:opacity-100"
               >
                 <Plus aria-hidden className="size-4" />
               </button>

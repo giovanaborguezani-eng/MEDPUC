@@ -69,12 +69,12 @@ export function Calendario() {
     else irPara(`/app/disciplinas/${item.conteudo.disciplina_id}/conteudos`);
   }
 
-  function novo(data: string, hora?: string) {
+  function novo(data: string, hora?: string, horaFim?: string) {
     const disciplinaUnica = filtros.disciplinas.size === 1 ? [...filtros.disciplinas][0] : undefined;
     setFormEvento({
       aberto: true,
       evento: null,
-      padrao: { data, hora_inicio: hora ?? null, tipo: filtros.tipo || 'prova', disciplina_id: disciplinaUnica },
+      padrao: { data, hora_inicio: hora ?? null, hora_fim: horaFim ?? null, tipo: filtros.tipo || 'prova', disciplina_id: disciplinaUnica },
     });
   }
 

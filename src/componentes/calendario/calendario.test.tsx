@@ -1,10 +1,10 @@
-import { render, screen, within } from '@testing-library/react';
+import { fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { deISO } from '../../lib/datas';
 import type { Conteudo, Disciplina, Evento, Tarefa } from '../../tipos/dominio';
 import { agruparPorDia, montarItens, type FiltrosCalendario } from './itens';
-import { VistaMes } from './Vistas';
+import { VistaDia, VistaMes } from './Vistas';
 
 const neuro = { id: 'd1', nome: 'Neuroanatomia', cor: '#8C1D40' } as Disciplina;
 const sentidos = { id: 'd2', nome: 'Sentidos', cor: '#A3367D' } as Disciplina;
@@ -53,5 +53,31 @@ describe('itens do calendário', () => {
     expect(aoAbrir).toHaveBeenCalledWith(expect.objectContaining({ id: 'e1', tipo: 'evento' }));
     expect(within(container.querySelector<HTMLElement>('[data-data="2026-10-22"]')!).queryByRole('button', { name: /Prova 1/ })).toBeNull();
     expect(screen.getAllByRole('button', { name: /Prova 1/ })).toHaveLength(1);
+  });
+
+  it('na visão do dia, clicar num horário cria um evento de 1 hora', () => {
+    const aoNovo = vi.fn();
+    const { container } = render(<VistaDia referencia={deISO('2026-10-18')} porDia={new Map()} aoAbrir={vi.fn()} aoNovo={aoNovo} />);
+    fireEvent.pointerDown(container.querySelector('[data-faixa="21"]')!);
+    fireEvent.pointerUp(window);
+    expect(aoNovo).toHaveBeenCalledWith('2026-10-18', '10:30', '11:30');
+  });
+
+  it('na visão do dia, arrastar escolhe início e término, em qualquer direção', () => {
+    const aoNovo = vi.fn();
+    const { container } = render(<VistaDia referencia={deISO('2026-10-18')} porDia={new Map()} aoAbrir={vi.fn()} aoNovo={aoNovo} />);
+    const faixa = (n: number) => container.querySelector<HTMLElement>(`[data-faixa="${n}"]`)!;
+    const original = document.elementFromPoint;
+    document.elementFromPoint = vi.fn(() => faixa(20));
+    try {
+      fireEvent.pointerDown(faixa(26));
+      fireEvent.pointerMove(window);
+      expect(screen.getByText('10:00 – 13:30')).toBeInTheDocument();
+      fireEvent.pointerUp(window);
+    } finally {
+      document.elementFromPoint = original;
+    }
+    expect(aoNovo).toHaveBeenCalledWith('2026-10-18', '10:00', '13:30');
+    expect(screen.queryByText('10:00 – 13:30')).toBeNull();
   });
 });
