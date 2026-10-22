@@ -24,6 +24,7 @@ TipTap · Vitest · Playwright · Netlify.
 | **Tarefas** | Título, prazo, prioridade, status e descrição; conclusão com um toque; filtros. |
 | **Configuração inicial** | O aluno copia disciplinas (e, se houver, datas) de um modelo publicado para a própria conta e depois ajusta nomes, cores e datas. |
 | **Administração** | Administradores criam modelos de período, cadastram disciplinas e datas oficiais — uma a uma ou colando listas de uma planilha. |
+| **Extracurriculares** | Painel (totais, em andamento, concluídas, inscrições abertas, prazos, horas, certificados, por categoria, recentes); atividades em 15 categorias configuráveis com campos específicos e status por categoria; visões em grade, por categoria e linha do tempo, com filtros, busca e ordenação; oportunidades com alertas de prazo e conversão em atividade; documentos privados no Storage; carga horária (prevista, realizada, comprovada, aceita), meta pessoal e exigência institucional só quando cadastrada pelo aluno; portfólio para impressão/PDF. |
 | **Perfil** | Nome, instituição, curso e período; troca de senha; plano e uso por recurso; exclusão definitiva da conta. |
 | **Página do produto** | Apresentação comercial e página de planos (lida do banco). |
 
@@ -101,6 +102,8 @@ medpuc/
 | `supabase/migrations/20261018120200_seguranca.sql` | privilégios explícitos e todas as políticas RLS |
 | `supabase/migrations/20261018120300_funcoes.sql` | limites por plano, `importar_modelo`, `buscar_anotacoes`, `reordenar_conteudos`, `excluir_minha_conta` |
 | `supabase/migrations/20261018120400_dados_iniciais.sql` | planos Gratuito (até 20 disciplinas) e Premium (indisponível), modelo do 3º período com as 8 disciplinas, sem datas |
+| `supabase/migrations/20261019120000_extracurriculares.sql` | categorias (catálogo), atividades, oportunidades, documentos, metas de horas, RLS, bucket privado `documentos-extracurriculares` e políticas do Storage, `converter_oportunidade`, limite de 100 documentos no plano gratuito |
+| `supabase/migrations/20261019120100_emoji_disciplinas.sql` | coluna opcional `emoji` em `disciplinas` |
 
 ### Tabelas
 
@@ -112,8 +115,16 @@ medpuc/
 | `administradores` | o usuário | **só ler** o próprio registro |
 | `modelos_*` | administração | ler os publicados; administradores gerenciam |
 | `disciplinas`, `eventos`, `conteudos`, `tarefas`, `anotacoes` | o usuário | ler, criar, editar e excluir os próprios |
+| `categorias_extracurriculares` | catálogo | ler as ativas; administradores gerenciam |
+| `atividades_extracurriculares`, `oportunidades_extracurriculares`, `metas_extracurriculares` | o usuário | ler, criar, editar e excluir os próprios |
+| `documentos_extracurriculares` | o usuário | ler, criar e excluir os próprios (arquivo em `<user_id>/<atividade_id>/…` no bucket privado) |
 
 Remover uma disciplina exclui seus conteúdos, avaliações e tarefas; as anotações ficam, como gerais.
+
+**Storage.** Os documentos extracurriculares ficam no bucket privado `documentos-extracurriculares` (até 10 MB; PDF, JPG,
+PNG, WEBP, DOC, DOCX), criado pela migration. As políticas só deixam cada usuário ler, enviar e apagar dentro da pasta
+com o próprio id, e o app abre arquivos por URL assinada de 60 segundos. Excluir uma atividade, um documento ou a conta
+remove os arquivos pelo app antes de apagar os registros (o banco não apaga objetos do Storage).
 
 ---
 
@@ -138,7 +149,7 @@ Pré-requisitos: Node 20.19+ (testado com 22) e, para o Supabase local, Docker.
 npm install
 
 # Opção A — Supabase local (recomendado para desenvolver e testar)
-npm run db:start                 # sobe Postgres, Auth, API e Mailpit e aplica as migrations
+npm run db:start                 # sobe Postgres, Auth, API, Storage e Mailpit e aplica as migrations
 npm run supabase -- status       # mostra API_URL e PUBLISHABLE_KEY
 # crie .env.local com:
 #   VITE_SUPABASE_URL=http://127.0.0.1:54321
@@ -256,6 +267,11 @@ rodar contra um endereço que não seja `127.0.0.1`/`localhost`.
 | 10. Isolamento entre dois usuários | pgTAP (56 verificações), API (24 testes) e E2E `isolamento` |
 | 11. Telas de celular | E2E `celular` (390×844: navegação inferior, sem rolagem horizontal, criação de evento) |
 | 12. Build de produção | `npm run build`; também com clone limpo + `npm ci` + `netlify build` (CLI oficial), e a suíte E2E rodada contra esse build com as regras do `netlify.toml` |
+| Extracurriculares: CRUD, categorias, filtros, linha do tempo | Vitest (`extracurriculares.test.ts`, formulário) e E2E `extracurriculares` |
+| Extracurriculares: oportunidade → atividade, sem duplicar | pgTAP, API e E2E `extracurriculares` |
+| Extracurriculares: upload e download autorizado, Storage isolado | pgTAP (políticas de `storage.objects`), API (Storage com dois usuários) e E2E |
+| Extracurriculares: carga horária e portfólio | Vitest e E2E (inclui impressão) |
+| Extracurriculares no celular | E2E `celular` |
 
 Também há testes de administração de modelos (importação em lote e cópia para o aluno) e de perfil/exclusão de conta.
 

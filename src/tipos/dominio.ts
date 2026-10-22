@@ -20,12 +20,20 @@ export type Anotacao = Tabelas['anotacoes']['Row'];
 export type ModeloPeriodo = Tabelas['modelos_periodo']['Row'];
 export type ModeloDisciplina = Tabelas['modelos_disciplinas']['Row'];
 export type ModeloEvento = Tabelas['modelos_eventos']['Row'];
+export type CategoriaExtra = Tabelas['categorias_extracurriculares']['Row'];
+export type Atividade = Tabelas['atividades_extracurriculares']['Row'];
+export type Oportunidade = Tabelas['oportunidades_extracurriculares']['Row'];
+export type DocumentoAtividade = Tabelas['documentos_extracurriculares']['Row'];
+export type MetaExtra = Tabelas['metas_extracurriculares']['Row'];
 
 export type TipoEvento = Enums['tipo_evento'];
 export type StatusEvento = Enums['status_evento'];
 export type StatusConteudo = Enums['status_conteudo'];
 export type PrioridadeTarefa = Enums['prioridade_tarefa'];
 export type StatusTarefa = Enums['status_tarefa'];
+export type StatusAtividade = Enums['status_atividade'];
+export type StatusOportunidade = Enums['status_oportunidade'];
+export type TipoDocumento = Enums['tipo_documento_extracurricular'];
 
 /** Item da listagem de anotações (sem o documento completo). */
 export type ResumoAnotacao = {
@@ -37,7 +45,7 @@ export type ResumoAnotacao = {
   updated_at: string;
 };
 
-export type DadosDisciplina = Pick<Disciplina, 'nome' | 'cor'> & Partial<Pick<Disciplina, 'professor' | 'descricao'>>;
+export type DadosDisciplina = Pick<Disciplina, 'nome' | 'cor'> & Partial<Pick<Disciplina, 'professor' | 'descricao' | 'emoji'>>;
 
 export type DadosEvento = Pick<Evento, 'titulo' | 'tipo' | 'data'> &
   Partial<Pick<Evento, 'disciplina_id' | 'hora_inicio' | 'hora_fim' | 'descricao' | 'cor' | 'status'>>;
@@ -47,6 +55,26 @@ export type DadosConteudo = Pick<Conteudo, 'titulo' | 'disciplina_id'> &
 
 export type DadosTarefa = Pick<Tarefa, 'titulo'> &
   Partial<Pick<Tarefa, 'disciplina_id' | 'descricao' | 'prazo' | 'prioridade' | 'status'>>;
+
+export type DadosAtividade = Pick<Atividade, 'titulo' | 'categoria_id'> &
+  Partial<
+    Pick<
+      Atividade,
+      | 'instituicao' | 'descricao' | 'area_interesse' | 'data_inicio' | 'data_fim' | 'horas_previstas'
+      | 'horas_realizadas' | 'horas_aceitas' | 'status' | 'prioridade' | 'link' | 'observacoes' | 'tags' | 'detalhes'
+    >
+  >;
+
+export type DadosOportunidade = Pick<Oportunidade, 'titulo' | 'categoria_id'> &
+  Partial<
+    Pick<
+      Oportunidade,
+      | 'instituicao' | 'link' | 'data_abertura' | 'data_encerramento' | 'requisitos' | 'documentos_necessarios'
+      | 'status_inscricao' | 'observacoes'
+    >
+  >;
+
+export type DadosMetaExtra = Pick<MetaExtra, 'meta_horas' | 'exigencia_horas' | 'exigencia_fonte' | 'exigencia_verificada_em'>;
 
 /** Estado de navegação ao abrir o editor de anotações. */
 export type EstadoNavegacaoAnotacao = {

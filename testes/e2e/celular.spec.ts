@@ -59,3 +59,34 @@ test('uso no celular: navegação inferior, calendário e formulário', async ({
   await expect(page.getByText('Avaliação prática — marcha')).toBeVisible();
   await semRolagemHorizontal(page);
 });
+
+test('extracurriculares no celular: barra inferior, abas sem rolagem lateral e cadastro', async ({ page }) => {
+  const aluno = await criarAluno('Rafaela Nunes');
+  await aluno.cliente
+    .from('atividades_extracurriculares')
+    .insert({ categoria_id: 'monitoria', titulo: 'Monitoria de Neuroanatomia', status: 'concluido', horas_realizadas: 30, data_inicio: '2026-02-01' });
+  await aluno.cliente
+    .from('oportunidades_extracurriculares')
+    .insert({ categoria_id: 'congresso', titulo: 'Congresso Brasileiro de Neurociências', data_encerramento: isoDaqui(5) });
+  await entrar(page, aluno.email);
+
+  const navegacao = page.getByRole('navigation', { name: 'Principal' }).last();
+  await navegacao.getByRole('link', { name: 'Extracurriculares' }).tap();
+  await expect(page).toHaveURL(/\/app\/extracurriculares$/);
+  await semRolagemHorizontal(page);
+
+  for (const caminho of ['atividades', 'atividades?modo=linha', 'oportunidades', 'carga-horaria', 'portfolio']) {
+    await page.goto(`/app/extracurriculares/${caminho}`);
+    await page.waitForLoadState('networkidle');
+    await semRolagemHorizontal(page);
+  }
+
+  await page.getByRole('button', { name: 'Adicionar atividade' }).tap();
+  const dialogo = page.getByRole('dialog', { name: 'Nova atividade' });
+  await dialogo.getByLabel('Nome da atividade').fill('Voluntariado no Pequeno Príncipe');
+  await dialogo.getByLabel('Categoria').selectOption({ label: 'Voluntariado' });
+  await dialogo.getByLabel('Horas realizadas').fill('8');
+  await dialogo.getByRole('button', { name: 'Salvar' }).tap();
+  await expect(page.getByRole('heading', { name: 'Voluntariado no Pequeno Príncipe' })).toBeVisible();
+  await semRolagemHorizontal(page);
+});

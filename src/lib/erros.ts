@@ -11,6 +11,9 @@ const NOMES_RECURSO: Record<string, string> = {
   conteudos: 'conteúdos',
   tarefas: 'tarefas',
   anotacoes: 'anotações',
+  atividades_extracurriculares: 'atividades extracurriculares',
+  oportunidades_extracurriculares: 'oportunidades',
+  documentos_extracurriculares: 'documentos',
 };
 
 const ERROS_AUTH: Record<string, string> = {
@@ -42,6 +45,7 @@ const ERROS_BANCO: Record<string, string> = {
   '22007': 'Data ou horário inválido.',
   '22008': 'Data ou horário inválido.',
   '22P02': 'Algum campo tem um valor inválido.',
+  P0002: 'Item não encontrado. Ele pode ter sido excluído.',
   PGRST116: 'Item não encontrado. Ele pode ter sido excluído.',
   PGRST301: 'Sua sessão expirou. Entre novamente.',
   PGRST303: 'Sua sessão expirou. Entre novamente.',

@@ -19,4 +19,9 @@ export const chaves = {
   buscaAnotacoes: (termo: string, disciplinaId: string | null) => ['anotacoes', 'busca', termo, disciplinaId] as const,
   anotacao: (id: string) => ['anotacoes', 'item', id] as const,
   modelos: (somentePublicados: boolean) => ['modelos', somentePublicados] as const,
+  categoriasExtra: ['extra', 'categorias'] as const,
+  atividadesExtra: ['extra', 'atividades'] as const,
+  oportunidadesExtra: ['extra', 'oportunidades'] as const,
+  documentosExtra: ['extra', 'documentos'] as const,
+  metaExtra: ['extra', 'meta'] as const,
 };

@@ -1,5 +1,6 @@
 import {
   BookOpen,
+  BriefcaseBusiness,
   CalendarDays,
   LayoutDashboard,
   ListChecks,
@@ -7,9 +8,10 @@ import {
   NotebookPen,
   ShieldCheck,
   UserRound,
+  type LucideIcon,
 } from 'lucide-react';
 import { Suspense } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router';
+import { Link, NavLink, Outlet, useMatch, useNavigate } from 'react-router';
 import { useNotificacoes } from '../../contextos/Notificacoes';
 import { useEhAdmin, usePerfil } from '../../hooks/useConta';
 import { traduzirErro } from '../../lib/erros';
@@ -18,12 +20,16 @@ import { sair } from '../../servicos/auth';
 import { Carregando } from '../ui/Estados';
 import { Marca } from '../ui/Visuais';
 
-const NAVEGACAO = [
+/** `curto`: rótulo da barra inferior do celular, quando o nome não cabe. */
+type ItemNavegacao = { para: string; rotulo: string; icone: LucideIcon; exato?: boolean; curto?: string };
+
+const NAVEGACAO: ItemNavegacao[] = [
   { para: '/app', rotulo: 'Painel', icone: LayoutDashboard, exato: true },
   { para: '/app/calendario', rotulo: 'Calendário', icone: CalendarDays },
   { para: '/app/disciplinas', rotulo: 'Disciplinas', icone: BookOpen },
   { para: '/app/anotacoes', rotulo: 'Anotações', icone: NotebookPen },
   { para: '/app/tarefas', rotulo: 'Tarefas', icone: ListChecks },
+  { para: '/app/extracurriculares', rotulo: 'Extracurriculares', curto: 'Extras', icone: BriefcaseBusiness },
 ];
 
 function Iniciais({ nome }: { nome: string }) {
@@ -46,6 +52,8 @@ export function LayoutApp() {
   const navegar = useNavigate();
   const avisos = useNotificacoes();
   const nome = perfil?.nome ?? '';
+  // O editor de anotações usa a largura toda da tela.
+  const telaCheia = useMatch('/app/anotacoes/:id');
 
   async function sairDaConta() {
     try {
@@ -63,12 +71,12 @@ export function LayoutApp() {
 
   return (
     <div className="min-h-dvh lg:flex">
-      <a href="#conteudo" className="sr-only z-50 rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
+      <a href="#conteudo" className="print:hidden sr-only z-50 rounded bg-white px-3 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2">
         Pular para o conteúdo
       </a>
 
       {/* Barra lateral (desktop) */}
-      <aside className="sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-stone-200 bg-white/70 px-4 py-5 backdrop-blur lg:flex">
+      <aside className="print:hidden! sticky top-0 hidden h-dvh w-64 shrink-0 flex-col border-r border-stone-200 bg-white/70 px-4 py-5 backdrop-blur lg:flex">
         <Link to="/app" className="mb-8 px-2" aria-label="MedPUC — painel">
           <Marca />
         </Link>
@@ -107,7 +115,7 @@ export function LayoutApp() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Cabeçalho (celular e tablet) */}
-        <header className="sticky top-0 z-30 flex items-center justify-between border-b border-stone-200 bg-papel/85 px-4 py-3 backdrop-blur lg:hidden">
+        <header className="print:hidden sticky top-0 z-30 flex items-center justify-between border-b border-stone-200 bg-papel/85 px-4 py-3 backdrop-blur lg:hidden">
           <Link to="/app" aria-label="MedPUC — painel">
             <Marca />
           </Link>
@@ -123,7 +131,10 @@ export function LayoutApp() {
           </div>
         </header>
 
-        <main id="conteudo" className="mx-auto w-full max-w-6xl flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12">
+        <main
+          id="conteudo"
+          className={`mx-auto w-full flex-1 px-4 pt-6 pb-28 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12 print:max-w-none print:p-0 ${telaCheia ? '' : 'max-w-6xl'}`}
+        >
           <Suspense fallback={<Carregando />}>
             <Outlet />
           </Suspense>
@@ -133,13 +144,14 @@ export function LayoutApp() {
       {/* Navegação inferior (celular) */}
       <nav
         aria-label="Principal"
-        className="fixed inset-x-0 bottom-0 z-30 grid grid-cols-5 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
+        className="print:hidden fixed inset-x-0 bottom-0 z-30 grid grid-cols-6 border-t border-stone-200 bg-white/95 pb-[env(safe-area-inset-bottom)] backdrop-blur lg:hidden"
       >
-        {NAVEGACAO.map(({ para, rotulo, icone: Icone, exato }) => (
+        {NAVEGACAO.map(({ para, rotulo, curto, icone: Icone, exato }) => (
           <NavLink
             key={para}
             to={para}
             end={exato}
+            aria-label={curto ? rotulo : undefined}
             className={({ isActive }) =>
               `flex flex-col items-center gap-0.5 py-2 text-[11px] font-medium transition-colors ${
                 isActive ? 'text-vinho-700' : 'text-stone-500'
@@ -147,7 +159,7 @@ export function LayoutApp() {
             }
           >
             <Icone aria-hidden className="size-5" />
-            {rotulo}
+            {curto ?? rotulo}
           </NavLink>
         ))}
       </nav>

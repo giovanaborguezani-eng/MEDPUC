@@ -8,6 +8,7 @@ function normalizar(dados: Partial<DadosDisciplina>) {
     ...(dados.nome !== undefined && { nome: dados.nome.trim() }),
     ...(dados.professor !== undefined && { professor: ouNulo(dados.professor?.trim()) }),
     ...(dados.descricao !== undefined && { descricao: ouNulo(dados.descricao?.trim()) }),
+    ...(dados.emoji !== undefined && { emoji: ouNulo(dados.emoji?.trim()) }),
   };
 }
 

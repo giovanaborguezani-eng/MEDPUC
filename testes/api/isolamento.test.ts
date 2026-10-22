@@ -128,6 +128,7 @@ describe('plano e papel não podem ser forjados pelo navegador', () => {
   });
 
   it('limite do plano é aplicado no banco e traduzido no app', async () => {
+    const { data: original } = await admin.from('planos').select('limites').eq('id', 'gratuito').single();
     await admin.from('planos').update({ limites: { disciplinas: 1 } }).eq('id', 'gratuito');
     try {
       const r = await ana.cliente.from('disciplinas').insert({ nome: 'Sentidos', cor: '#A3367D' });
@@ -140,7 +141,7 @@ describe('plano e papel não podem ser forjados pelo navegador', () => {
       const liberado = await ana.cliente.from('disciplinas').insert({ nome: 'Sentidos', cor: '#A3367D' });
       expect(liberado.error).toBeNull();
     } finally {
-      await admin.from('planos').update({ limites: { disciplinas: 20 } }).eq('id', 'gratuito');
+      await admin.from('planos').update({ limites: original!.limites }).eq('id', 'gratuito');
       await admin.from('assinaturas').delete().eq('user_id', ana.id);
     }
   });

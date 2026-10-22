@@ -21,6 +21,9 @@ const RECURSOS = [
   { chave: 'conteudos', rotulo: 'Conteúdos' },
   { chave: 'tarefas', rotulo: 'Tarefas' },
   { chave: 'anotacoes', rotulo: 'Anotações' },
+  { chave: 'atividades_extracurriculares', rotulo: 'Atividades extracurriculares' },
+  { chave: 'oportunidades_extracurriculares', rotulo: 'Oportunidades' },
+  { chave: 'documentos_extracurriculares', rotulo: 'Documentos e certificados' },
 ];
 
 function DadosPessoais() {

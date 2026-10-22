@@ -3,7 +3,7 @@ import { Link } from 'react-router';
 import { comTransparencia } from '../../lib/cores';
 import { descreverDistancia, formatarData } from '../../lib/datas';
 import type { Progresso } from '../../lib/resumo';
-import { plural } from '../../lib/texto';
+import { plural, simboloDisciplina } from '../../lib/texto';
 import { rotuloTipo, type Disciplina, type Evento } from '../../tipos/dominio';
 import { BarraProgresso } from '../ui/Visuais';
 
@@ -15,6 +15,7 @@ type Props = {
 };
 
 export function CartaoDisciplina({ disciplina, proximaAvaliacao, pendentes, progresso }: Props) {
+  const simbolo = simboloDisciplina(disciplina);
   return (
     <article className="group relative flex flex-col overflow-hidden rounded-2xl border border-stone-200/80 bg-white shadow-cartao transition-shadow hover:shadow-flutuante">
       <div className="h-1.5" style={{ backgroundColor: disciplina.cor }} aria-hidden />
@@ -22,10 +23,10 @@ export function CartaoDisciplina({ disciplina, proximaAvaliacao, pendentes, prog
         <div className="flex items-start gap-3">
           <span
             aria-hidden
-            className="flex size-10 shrink-0 items-center justify-center rounded-xl font-serif text-lg font-semibold"
+            className={`flex size-10 shrink-0 items-center justify-center rounded-xl ${simbolo.emoji ? 'text-xl' : 'font-serif text-lg font-semibold'}`}
             style={{ backgroundColor: comTransparencia(disciplina.cor, 0.12), color: disciplina.cor }}
           >
-            {disciplina.nome.charAt(0).toUpperCase()}
+            {simbolo.texto}
           </span>
           <div className="min-w-0 flex-1">
             <h2 className="font-semibold leading-snug text-stone-900">

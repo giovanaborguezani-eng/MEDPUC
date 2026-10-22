@@ -16,7 +16,7 @@
     "test:db": "npx --yes supabase@2.121.0 test db",
     "test:tudo": "npm run typecheck && npm test && npm run test:db && npm run test:api && npm run test:e2e",
     "supabase": "npx --yes supabase@2.121.0",
-    "db:start": "npx --yes supabase@2.121.0 start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,storage-api,postgres-meta,supavisor",
+    "db:start": "npx --yes supabase@2.121.0 start -x studio,imgproxy,edge-runtime,logflare,vector,realtime,postgres-meta,supavisor",
     "db:stop": "npx --yes supabase@2.121.0 stop",
     "db:reset": "npx --yes supabase@2.121.0 db reset",
     "db:types": "npx --yes supabase@2.121.0 gen types typescript --local > src/tipos/banco.ts"

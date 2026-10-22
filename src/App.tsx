@@ -21,6 +21,13 @@ import { RotaAdmin, RotaPrivada, RotaVisitante } from './rotas/Guardas';
 
 const Anotacao = lazy(() => import('./paginas/app/Anotacao'));
 const Administracao = lazy(() => import('./paginas/admin/Administracao'));
+const LayoutExtracurriculares = lazy(() => import('./paginas/app/extracurriculares/Layout'));
+const PainelExtracurriculares = lazy(() => import('./paginas/app/extracurriculares/Painel'));
+const AtividadesExtracurriculares = lazy(() => import('./paginas/app/extracurriculares/Atividades'));
+const PaginaAtividade = lazy(() => import('./paginas/app/extracurriculares/Atividade'));
+const OportunidadesExtracurriculares = lazy(() => import('./paginas/app/extracurriculares/Oportunidades'));
+const CargaHoraria = lazy(() => import('./paginas/app/extracurriculares/CargaHoraria'));
+const Portfolio = lazy(() => import('./paginas/app/extracurriculares/Portfolio'));
 
 export const rotas = [
   { path: '/', element: <Inicio /> },
@@ -61,6 +68,18 @@ export const rotas = [
       { path: 'tarefas', element: <Tarefas /> },
       { path: 'configuracao', element: <ConfiguracaoInicial /> },
       { path: 'perfil', element: <Perfil /> },
+      {
+        path: 'extracurriculares',
+        element: <LayoutExtracurriculares />,
+        children: [
+          { index: true, element: <PainelExtracurriculares /> },
+          { path: 'atividades', element: <AtividadesExtracurriculares /> },
+          { path: 'atividades/:id', element: <PaginaAtividade /> },
+          { path: 'oportunidades', element: <OportunidadesExtracurriculares /> },
+          { path: 'carga-horaria', element: <CargaHoraria /> },
+          { path: 'portfolio', element: <Portfolio /> },
+        ],
+      },
       {
         path: 'admin',
         element: (

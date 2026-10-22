@@ -9,6 +9,7 @@ import { Botao } from '../ui/Botao';
 import { AreaTexto, Campo } from '../ui/Campos';
 import { Modal } from '../ui/Modal';
 import { SeletorCor } from '../ui/SeletorCor';
+import { SeletorEmoji } from '../ui/SeletorEmoji';
 
 type Props = {
   aberto: boolean;
@@ -25,6 +26,7 @@ export function FormularioDisciplina({ aberto, aoFechar, disciplina, aoSalvar }:
   const [cor, setCor] = useState('');
   const [professor, setProfessor] = useState('');
   const [descricao, setDescricao] = useState('');
+  const [emoji, setEmoji] = useState('');
   const [erros, setErros] = useState<{ nome?: string; cor?: string; professor?: string; descricao?: string }>({});
 
   useEffect(() => {
@@ -33,6 +35,7 @@ export function FormularioDisciplina({ aberto, aoFechar, disciplina, aoSalvar }:
     setCor(disciplina?.cor ?? sugerirCor(existentes.map((d) => d.cor)));
     setProfessor(disciplina?.professor ?? '');
     setDescricao(disciplina?.descricao ?? '');
+    setEmoji(disciplina?.emoji ?? '');
     setErros({});
     // As cores em uso só importam no momento de abrir.
   }, [aberto, disciplina]);
@@ -48,7 +51,7 @@ export function FormularioDisciplina({ aberto, aoFechar, disciplina, aoSalvar }:
     setErros(novos);
     if (Object.values(novos).some(Boolean)) return;
     try {
-      const salva = await salvar.mutateAsync({ id: disciplina?.id, dados: { nome, cor, professor, descricao } });
+      const salva = await salvar.mutateAsync({ id: disciplina?.id, dados: { nome, cor, professor, descricao, emoji } });
       avisos.sucesso(disciplina ? 'Disciplina atualizada.' : 'Disciplina criada.');
       aoSalvar?.(salva);
       aoFechar();
@@ -77,6 +80,7 @@ export function FormularioDisciplina({ aberto, aoFechar, disciplina, aoSalvar }:
       <form id="formulario-disciplina" onSubmit={enviar} noValidate className="space-y-4">
         <Campo rotulo="Nome" value={nome} onChange={(e) => setNome(e.target.value)} erro={erros.nome} data-autofoco />
         <SeletorCor valor={cor || '#8C1D40'} aoMudar={setCor} erro={erros.cor} />
+        <SeletorEmoji valor={emoji} aoMudar={setEmoji} />
         <Campo rotulo="Professor(a)" value={professor} onChange={(e) => setProfessor(e.target.value)} erro={erros.professor} opcional />
         <AreaTexto
           rotulo="Descrição"

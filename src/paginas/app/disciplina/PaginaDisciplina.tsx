@@ -77,7 +77,14 @@ export function PaginaDisciplina() {
         <div className="h-1.5" style={{ backgroundColor: disciplina.cor }} aria-hidden />
         <div className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center sm:p-6">
           <div className="min-w-0 flex-1">
-            <h1 className="font-serif text-2xl font-semibold tracking-tight sm:text-3xl">{disciplina.nome}</h1>
+            <h1 className="font-serif text-2xl font-semibold tracking-tight sm:text-3xl">
+              {disciplina.emoji && (
+                <span aria-hidden className="mr-2 font-sans">
+                  {disciplina.emoji}
+                </span>
+              )}
+              {disciplina.nome}
+            </h1>
             {disciplina.professor && <p className="mt-1 text-sm text-stone-500">{disciplina.professor}</p>}
           </div>
           <div className="flex gap-2">

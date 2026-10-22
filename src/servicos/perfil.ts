@@ -1,6 +1,7 @@
 import { supabase } from '../lib/supabase';
 import type { Perfil, Plano } from '../tipos/dominio';
 import { resolver } from './base';
+import { caminhosDosMeusDocumentos, removerArquivos } from './documentos';
 
 export type DadosPerfil = Pick<Perfil, 'nome' | 'instituicao' | 'curso' | 'periodo'>;
 
@@ -29,8 +30,13 @@ export async function verificarAdmin(): Promise<boolean> {
   return Boolean(await resolver(supabase().rpc('eh_admin')));
 }
 
-/** Apaga o usuário e, em cascata, todos os dados dele. A sessão local fica para quem chamou encerrar. */
+/**
+ * Apaga o usuário e, em cascata, todos os dados dele. Os arquivos do Storage
+ * não saem em cascata, então são removidos antes. A sessão local fica para
+ * quem chamou encerrar.
+ */
 export async function excluirMinhaConta(): Promise<void> {
+  await removerArquivos(await caminhosDosMeusDocumentos());
   await resolver(supabase().rpc('excluir_minha_conta'));
 }
 
@@ -40,7 +46,10 @@ export async function listarPlanosDisponiveis(): Promise<Plano[]> {
 
 /** Uso atual por recurso, para comparar com os limites do plano. */
 export async function contarUso(): Promise<Record<string, number>> {
-  const tabelas = ['disciplinas', 'eventos', 'conteudos', 'tarefas', 'anotacoes'] as const;
+  const tabelas = [
+    'disciplinas', 'eventos', 'conteudos', 'tarefas', 'anotacoes',
+    'atividades_extracurriculares', 'oportunidades_extracurriculares', 'documentos_extracurriculares',
+  ] as const;
   const contagens = await Promise.all(
     tabelas.map(async (tabela) => {
       const { count, error } = await supabase().from(tabela).select('id', { count: 'exact', head: true });

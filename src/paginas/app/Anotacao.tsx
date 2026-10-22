@@ -121,7 +121,7 @@ function Editor({ anotacao, aoRecarregar }: { anotacao: Anotacao | null; aoRecar
   }
 
   return (
-    <article className="mx-auto max-w-3xl">
+    <article>
       <div className="mb-4 flex items-center gap-2">
         <Link
           to={voltar}

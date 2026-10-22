@@ -65,7 +65,8 @@
 /* ── Editor de anotações (TipTap) ─────────────────────────────────────── */
 
 .editor-anotacao .tiptap {
-  @apply min-h-[50vh] outline-none text-[15px] leading-7 text-stone-800;
+  /* Ocupa a altura que sobra na tela: dá para clicar em qualquer ponto e escrever. */
+  @apply min-h-[max(50vh,calc(100dvh-22rem))] outline-none text-[15px] leading-7 text-stone-800;
 }
 .editor-anotacao .tiptap > * + * { @apply mt-3; }
 .editor-anotacao .tiptap h1 { @apply font-serif text-2xl font-semibold mt-6; }
@@ -86,4 +87,11 @@
 .editor-anotacao .tiptap p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   @apply pointer-events-none float-left h-0 text-stone-400;
+}
+
+/* ── Impressão (portfólio) ─────────────────────────────────────────────── */
+
+@media print {
+  @page { margin: 18mm 16mm; }
+  body { @apply bg-white; }
 }
