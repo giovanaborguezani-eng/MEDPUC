@@ -758,6 +758,7 @@ export type Database = {
           descricao: string | null
           disciplina_id: string | null
           id: string
+          planejada_para: string | null
           prazo: string | null
           prioridade: Database["public"]["Enums"]["prioridade_tarefa"]
           status: Database["public"]["Enums"]["status_tarefa"]
@@ -771,6 +772,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id?: string | null
           id?: string
+          planejada_para?: string | null
           prazo?: string | null
           prioridade?: Database["public"]["Enums"]["prioridade_tarefa"]
           status?: Database["public"]["Enums"]["status_tarefa"]
@@ -784,6 +786,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id?: string | null
           id?: string
+          planejada_para?: string | null
           prazo?: string | null
           prioridade?: Database["public"]["Enums"]["prioridade_tarefa"]
           status?: Database["public"]["Enums"]["status_tarefa"]
@@ -936,6 +939,7 @@ export type Database = {
         | "entrega"
         | "aula"
         | "revisao"
+        | "estudo"
         | "outro"
     }
     CompositeTypes: {
@@ -1112,6 +1116,7 @@ export const Constants = {
         "entrega",
         "aula",
         "revisao",
+        "estudo",
         "outro",
       ],
     },

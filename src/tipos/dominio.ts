@@ -54,7 +54,7 @@ export type DadosConteudo = Pick<Conteudo, 'titulo' | 'disciplina_id'> &
   Partial<Pick<Conteudo, 'data_prevista' | 'status' | 'observacoes'>>;
 
 export type DadosTarefa = Pick<Tarefa, 'titulo'> &
-  Partial<Pick<Tarefa, 'disciplina_id' | 'descricao' | 'prazo' | 'prioridade' | 'status'>>;
+  Partial<Pick<Tarefa, 'disciplina_id' | 'descricao' | 'prazo' | 'planejada_para' | 'prioridade' | 'status'>>;
 
 export type DadosAtividade = Pick<Atividade, 'titulo' | 'categoria_id'> &
   Partial<
@@ -93,6 +93,7 @@ export const TIPOS_EVENTO: { valor: TipoEvento; rotulo: string; cor: string }[] 
   { valor: 'entrega', rotulo: 'Entrega de atividade', cor: '#0F766E' },
   { valor: 'aula', rotulo: 'Aula', cor: '#475569' },
   { valor: 'revisao', rotulo: 'Revisão', cor: '#6B4E9B' },
+  { valor: 'estudo', rotulo: 'Estudo', cor: '#0E7490' },
   { valor: 'outro', rotulo: 'Outro compromisso', cor: '#78716C' },
 ];
 

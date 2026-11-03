@@ -21,16 +21,18 @@ type Valores = {
   titulo: string;
   descricao: string;
   prazo: string;
+  planejada_para: string;
   prioridade: PrioridadeTarefa;
   status: StatusTarefa;
   disciplina_id: string;
 };
 
-function iniciais(tarefa?: Tarefa | null, disciplinaId?: string): Valores {
+function iniciais(tarefa?: Tarefa | null, disciplinaId?: string, diaPlanejado?: string): Valores {
   return {
     titulo: tarefa?.titulo ?? '',
     descricao: tarefa?.descricao ?? '',
     prazo: tarefa?.prazo ?? '',
+    planejada_para: tarefa ? (tarefa.planejada_para ?? '') : (diaPlanejado ?? ''),
     prioridade: tarefa?.prioridade ?? 'media',
     status: tarefa?.status ?? 'pendente',
     disciplina_id: tarefa?.disciplina_id ?? disciplinaId ?? '',
@@ -42,23 +44,25 @@ type Props = {
   aoFechar: () => void;
   tarefa?: Tarefa | null;
   disciplinaFixa?: string;
+  /** Dia já escolhido ao criar pelo planner. */
+  diaPlanejado?: string;
 };
 
-export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa }: Props) {
+export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa, diaPlanejado }: Props) {
   const avisos = useNotificacoes();
   const { data: disciplinas = [] } = useDisciplinas();
   const salvar = useSalvarTarefa();
   const excluir = useExcluirTarefa();
-  const [valores, setValores] = useState<Valores>(() => iniciais(tarefa, disciplinaFixa));
+  const [valores, setValores] = useState<Valores>(() => iniciais(tarefa, disciplinaFixa, diaPlanejado));
   const [erros, setErros] = useState<Partial<Record<keyof Valores, string>>>({});
   const [confirmando, setConfirmando] = useState(false);
 
   useEffect(() => {
     if (aberto) {
-      setValores(iniciais(tarefa, disciplinaFixa));
+      setValores(iniciais(tarefa, disciplinaFixa, diaPlanejado));
       setErros({});
     }
-  }, [aberto, tarefa, disciplinaFixa]);
+  }, [aberto, tarefa, disciplinaFixa, diaPlanejado]);
 
   function mudar<K extends keyof Valores>(campo: K, valor: Valores[K]) {
     setValores((v) => ({ ...v, [campo]: valor }));
@@ -69,6 +73,7 @@ export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa }: P
     const novos = {
       titulo: primeiro(obrigatorio(valores.titulo, 'O título'), tamanhoMaximo(valores.titulo, 200)),
       prazo: dataOpcionalValida(valores.prazo),
+      planejada_para: dataOpcionalValida(valores.planejada_para),
       descricao: tamanhoMaximo(valores.descricao, 4000),
     };
     setErros(novos);
@@ -80,6 +85,7 @@ export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa }: P
           titulo: valores.titulo,
           descricao: valores.descricao,
           prazo: valores.prazo || null,
+          planejada_para: valores.planejada_para || null,
           prioridade: valores.prioridade,
           status: valores.status,
           disciplina_id: valores.disciplina_id || null,
@@ -142,6 +148,15 @@ export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa }: P
           />
           <div className="grid gap-4 sm:grid-cols-2">
             <Campo rotulo="Prazo" type="date" value={valores.prazo} onChange={(e) => mudar('prazo', e.target.value)} erro={erros.prazo} opcional />
+            <Campo
+              rotulo="Dia planejado"
+              type="date"
+              value={valores.planejada_para}
+              onChange={(e) => mudar('planejada_para', e.target.value)}
+              erro={erros.planejada_para}
+              dica="Quando você pretende fazer. Aparece no planner semanal."
+              opcional
+            />
             <Selecao
               rotulo="Disciplina"
               value={valores.disciplina_id}

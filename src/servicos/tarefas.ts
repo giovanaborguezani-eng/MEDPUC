@@ -8,6 +8,7 @@ function normalizar(dados: Partial<DadosTarefa>) {
     ...(dados.titulo !== undefined && { titulo: dados.titulo.trim() }),
     ...(dados.descricao !== undefined && { descricao: ouNulo(dados.descricao?.trim()) }),
     ...(dados.prazo !== undefined && { prazo: ouNulo(dados.prazo) }),
+    ...(dados.planejada_para !== undefined && { planejada_para: ouNulo(dados.planejada_para) }),
     ...(dados.disciplina_id !== undefined && { disciplina_id: ouNulo(dados.disciplina_id) }),
   };
 }

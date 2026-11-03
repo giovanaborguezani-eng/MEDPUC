@@ -49,3 +49,21 @@ export function useExcluirTarefa() {
     },
   });
 }
+
+/** Planner: troca o dia planejado (null = sem dia), com atualização otimista. */
+export function useMoverTarefa() {
+  const cliente = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, dia }: { id: string; dia: string | null }) => atualizarTarefa(id, { planejada_para: dia }),
+    onMutate: async ({ id, dia }) => {
+      await cliente.cancelQueries({ queryKey: chaves.tarefas });
+      const anterior = cliente.getQueryData<Tarefa[]>(chaves.tarefas);
+      cliente.setQueryData<Tarefa[]>(chaves.tarefas, (lista) => lista?.map((t) => (t.id === id ? { ...t, planejada_para: dia } : t)));
+      return { anterior };
+    },
+    onError: (_erro, _vars, contexto) => {
+      if (contexto?.anterior) cliente.setQueryData(chaves.tarefas, contexto.anterior);
+    },
+    onSettled: () => cliente.invalidateQueries({ queryKey: chaves.tarefas }),
+  });
+}
