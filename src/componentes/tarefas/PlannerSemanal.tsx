@@ -1,15 +1,16 @@
 /**
  * Planner semanal: as tarefas distribuídas pelos dias em que o aluno pretende
- * fazê-las. Arrastar entre os dias (computador) ou escolher o dia no seletor
- * do cartão (teclado e celular). O prazo da tarefa não muda.
+ * fazê-las, na ordem que ele escolher. Arrastar entre os dias ou dentro do
+ * dia (mouse), ou usar o seletor de dia e os botões subir/descer (teclado,
+ * tablet e celular). O prazo da tarefa não muda.
  */
 
-import { CalendarClock, Check, ChevronLeft, ChevronRight, Inbox, Plus } from 'lucide-react';
+import { ArrowDown, ArrowUp, CalendarClock, Check, ChevronLeft, ChevronRight, Inbox, Plus } from 'lucide-react';
 import { useMemo, useState, type DragEvent } from 'react';
 import { useSearchParams } from 'react-router';
 import { useNotificacoes } from '../../contextos/Notificacoes';
 import { useMapaDisciplinas } from '../../hooks/useDisciplinas';
-import { useConcluirTarefa, useMoverTarefa, useTarefas } from '../../hooks/useTarefas';
+import { useConcluirTarefa, usePlanejarTarefas, useTarefas, useTirarDoPlanner } from '../../hooks/useTarefas';
 import { comTransparencia } from '../../lib/cores';
 import {
   deISO,
@@ -23,7 +24,7 @@ import {
   tituloDaVista,
 } from '../../lib/datas';
 import { traduzirErro } from '../../lib/erros';
-import { paraPlanejar, tarefasPorDia } from '../../lib/planner';
+import { paraPlanejar, posicionar, tarefasPorDia } from '../../lib/planner';
 import { tarefaAtrasada } from '../../lib/resumo';
 import type { Disciplina, Tarefa } from '../../tipos/dominio';
 import { BotaoIcone } from '../ui/Botao';
@@ -33,15 +34,20 @@ import { FormularioTarefa } from './FormularioTarefa';
 const SEM_DIA = 'sem-dia';
 const COR_SEM_DISCIPLINA = '#78716C';
 
+/** Onde a tarefa arrastada vai cair: coluna e posição (sem contar a própria tarefa). */
+type Alvo = { chave: string; indice: number };
+
 export function PlannerSemanal() {
   const avisos = useNotificacoes();
   const [parametros, setParametros] = useSearchParams();
   const { data: tarefas, isPending, isError, error, refetch } = useTarefas();
   const disciplinas = useMapaDisciplinas();
-  const mover = useMoverTarefa();
+  const planejar = usePlanejarTarefas();
+  const tirar = useTirarDoPlanner();
   const concluir = useConcluirTarefa();
   const [formulario, setFormulario] = useState<{ aberto: boolean; tarefa: Tarefa | null; dia?: string }>({ aberto: false, tarefa: null });
-  const [alvo, setAlvo] = useState<string | null>(null);
+  const [arrastada, setArrastada] = useState<string | null>(null);
+  const [alvo, setAlvo] = useState<Alvo | null>(null);
 
   const hoje = hojeISO();
   const semanaParam = parametros.get('semana');
@@ -56,14 +62,40 @@ export function PlannerSemanal() {
     setParametros(proximos, { replace: true });
   }
 
-  async function moverPara(tarefa: Tarefa, dia: string | null) {
-    if ((tarefa.planejada_para ?? null) === dia) return;
+  /** Lista de ids do dia, inclusive de dias fora da semana exibida. */
+  function idsDoDia(dia: string): string[] {
+    const lista = porDia.get(dia) ?? tarefasPorDia(tarefas ?? [], [dia]).get(dia) ?? [];
+    return lista.map((t) => t.id);
+  }
+
+  /** Coloca a tarefa no dia, na posição indicada (padrão: no fim). */
+  async function colocar(tarefa: Tarefa, dia: string, indice = Number.MAX_SAFE_INTEGER) {
+    const atuais = idsDoDia(dia);
+    const ids = posicionar(atuais, tarefa.id, indice);
+    const mesmoDia = tarefa.planejada_para === dia;
+    if (mesmoDia && ids.join() === atuais.join()) return;
     try {
-      await mover.mutateAsync({ id: tarefa.id, dia });
-      avisos.sucesso(dia ? `"${tarefa.titulo}" planejada para ${formatarData(dia, "EEEE, d 'de' MMM")}.` : `"${tarefa.titulo}" ficou sem dia.`);
+      await planejar.mutateAsync({ dia, ids });
+      if (!mesmoDia) avisos.sucesso(`"${tarefa.titulo}" planejada para ${formatarData(dia, "EEEE, d 'de' MMM")}.`);
     } catch (erro) {
       avisos.erro(traduzirErro(erro));
     }
+  }
+
+  async function semDia(tarefa: Tarefa) {
+    if (!tarefa.planejada_para) return;
+    try {
+      await tirar.mutateAsync(tarefa.id);
+      avisos.sucesso(`"${tarefa.titulo}" voltou para "Para planejar".`);
+    } catch (erro) {
+      avisos.erro(traduzirErro(erro));
+    }
+  }
+
+  function moverNoDia(tarefa: Tarefa, passo: -1 | 1) {
+    if (!tarefa.planejada_para) return;
+    const atual = idsDoDia(tarefa.planejada_para).indexOf(tarefa.id);
+    colocar(tarefa, tarefa.planejada_para, atual + passo);
   }
 
   async function alternar(tarefa: Tarefa) {
@@ -76,40 +108,64 @@ export function PlannerSemanal() {
     }
   }
 
-  // Arrastar e soltar (mouse). Cada coluna e a bandeja recebem a tarefa.
-  function soltar(e: DragEvent, dia: string | null) {
-    e.preventDefault();
-    setAlvo(null);
-    const id = e.dataTransfer.getData('text/plain');
-    const tarefa = tarefas?.find((t) => t.id === id);
-    if (tarefa) moverPara(tarefa, dia);
+  // ── Arrastar e soltar (mouse) ─────────────────────────────────────────────
+  // A posição é calculada pela altura do ponteiro em relação aos cartões da
+  // coluna (sem contar o cartão arrastado).
+  function indiceNoPonto(coluna: HTMLElement, y: number): number {
+    const cartoes = [...coluna.querySelectorAll<HTMLElement>('[data-cartao]')].filter((c) => c.dataset.cartao !== arrastada);
+    const i = cartoes.findIndex((c) => {
+      const r = c.getBoundingClientRect();
+      return y < r.top + r.height / 2;
+    });
+    return i === -1 ? cartoes.length : i;
   }
+
   const alvoProps = (chave: string, dia: string | null) => ({
-    onDragOver: (e: DragEvent) => {
+    onDragOver: (e: DragEvent<HTMLElement>) => {
       if (!e.dataTransfer.types.includes('text/plain')) return;
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      if (alvo !== chave) setAlvo(chave);
+      const indice = dia ? indiceNoPonto(e.currentTarget, e.clientY) : 0;
+      if (alvo?.chave !== chave || alvo.indice !== indice) setAlvo({ chave, indice });
     },
-    onDragLeave: (e: DragEvent) => {
-      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAlvo((a) => (a === chave ? null : a));
+    onDragLeave: (e: DragEvent<HTMLElement>) => {
+      if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setAlvo((a) => (a?.chave === chave ? null : a));
     },
-    onDrop: (e: DragEvent) => soltar(e, dia),
+    onDrop: (e: DragEvent<HTMLElement>) => {
+      e.preventDefault();
+      const indice = dia ? indiceNoPonto(e.currentTarget, e.clientY) : 0;
+      setAlvo(null);
+      setArrastada(null);
+      const tarefa = tarefas?.find((t) => t.id === e.dataTransfer.getData('text/plain'));
+      if (!tarefa) return;
+      if (dia) colocar(tarefa, dia, indice);
+      else semDia(tarefa);
+    },
   });
 
   if (isPending) return <EsqueletoLista />;
   if (isError) return <MensagemErro erro={error} aoTentarNovamente={() => refetch()} />;
 
-  const cartao = (tarefa: Tarefa) => (
+  const marcador = <div aria-hidden className="h-0.5 rounded-full bg-vinho-500" />;
+
+  const cartao = (tarefa: Tarefa, posicao?: { indice: number; total: number }) => (
     <CartaoPlanner
       key={tarefa.id}
       tarefa={tarefa}
       disciplina={tarefa.disciplina_id ? disciplinas.get(tarefa.disciplina_id) : null}
       dias={dias}
       hoje={hoje}
+      posicao={posicao}
+      arrastando={arrastada === tarefa.id}
+      aoComecarArrastar={() => setArrastada(tarefa.id)}
+      aoTerminarArrastar={() => {
+        setArrastada(null);
+        setAlvo(null);
+      }}
       aoAbrir={(t) => setFormulario({ aberto: true, tarefa: t })}
       aoAlternar={alternar}
-      aoMover={moverPara}
+      aoEscolherDia={(t, dia) => (dia ? colocar(t, dia) : semDia(t))}
+      aoMoverNoDia={moverNoDia}
     />
   );
 
@@ -140,10 +196,10 @@ export function PlannerSemanal() {
         aria-labelledby="titulo-bandeja"
         {...alvoProps(SEM_DIA, null)}
         className={`mb-4 rounded-2xl border border-dashed p-3 transition-colors ${
-          alvo === SEM_DIA ? 'border-vinho-400 bg-vinho-50/60' : 'border-stone-300 bg-white/60'
+          alvo?.chave === SEM_DIA ? 'border-vinho-400 bg-vinho-50/60' : 'border-stone-300 bg-white/60'
         }`}
       >
-        <div className="mb-2 flex items-center gap-2 px-1">
+        <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 px-1">
           <Inbox aria-hidden className="size-4 text-stone-400" />
           <h3 id="titulo-bandeja" className="text-sm font-semibold text-stone-700">
             Para planejar
@@ -151,27 +207,31 @@ export function PlannerSemanal() {
           <span className="text-xs text-stone-500">
             {bandeja.length ? `${bandeja.length} pendente${bandeja.length === 1 ? '' : 's'} sem dia nesta semana` : 'Tudo planejado'}
           </span>
-          <span className="ml-auto hidden text-xs text-stone-400 lg:inline">Arraste para um dia ou escolha no cartão</span>
+          <span className="ml-auto hidden text-xs text-stone-400 pointer-fine:inline">Arraste para um dia e para a posição que quiser</span>
         </div>
-        {bandeja.length > 0 && <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">{bandeja.map(cartao)}</div>}
+        {bandeja.length > 0 && <div className="grid gap-1.5 sm:grid-cols-2 lg:grid-cols-4">{bandeja.map((t) => cartao(t))}</div>}
       </section>
 
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 xl:gap-2">
+      {/* Tablet e notebook: as 7 colunas lado a lado. Celular: dias empilhados. */}
+      <div className="grid gap-3 md:grid-cols-7 md:gap-1.5 lg:gap-2">
         {dias.map((dia) => {
           const itens = porDia.get(dia) ?? [];
           const ehHoje = dia === hoje;
+          const aqui = alvo?.chave === dia;
+          // O cartão arrastado continua na tela (esmaecido); o marcador conta as posições sem ele.
+          const semArrastada = itens.filter((t) => t.id !== arrastada);
           return (
             <section
               key={dia}
               aria-label={formatarData(dia, "EEEE, d 'de' MMMM")}
               data-data={dia}
               {...alvoProps(dia, dia)}
-              className={`flex flex-col rounded-2xl border bg-white p-2 shadow-cartao transition-colors xl:min-h-80 ${
-                alvo === dia ? 'border-vinho-400 bg-vinho-50/40' : ehHoje ? 'border-vinho-300' : 'border-stone-200'
+              className={`flex min-w-0 flex-col rounded-2xl border bg-white p-2 shadow-cartao transition-colors md:min-h-80 md:p-1 lg:p-2 ${
+                aqui ? 'border-vinho-400 bg-vinho-50/40' : ehHoje ? 'border-vinho-300' : 'border-stone-200'
               }`}
             >
               <div className="mb-2 flex items-center justify-between px-1">
-                <span className="flex items-baseline gap-2 xl:flex-col xl:gap-0">
+                <span className="flex items-baseline gap-2 md:flex-col md:gap-0">
                   <span className={`text-[11px] font-semibold tracking-wide uppercase ${ehHoje ? 'text-vinho-700' : 'text-stone-500'}`}>
                     {formatarDiaSemana(dia)}
                   </span>
@@ -186,9 +246,16 @@ export function PlannerSemanal() {
                   <Plus aria-hidden className="size-4" />
                 </button>
               </div>
-              <div className="flex-1 space-y-1.5">
-                {itens.length ? itens.map(cartao) : <p className="px-1 pb-1 text-xs text-stone-500">Livre</p>}
-              </div>
+              <ol className="flex-1 space-y-1.5" aria-label={`Tarefas de ${formatarData(dia, "d 'de' MMMM")}, na ordem escolhida`}>
+                {itens.map((t, i) => (
+                  <li key={t.id} className="space-y-1.5">
+                    {aqui && t.id !== arrastada && semArrastada.indexOf(t) === alvo.indice && marcador}
+                    {cartao(t, { indice: i, total: itens.length })}
+                  </li>
+                ))}
+                {aqui && alvo.indice >= semArrastada.length && <li aria-hidden>{marcador}</li>}
+                {!itens.length && !aqui && <li className="px-1 pb-1 text-xs text-stone-500">Livre</li>}
+              </ol>
             </section>
           );
         })}
@@ -209,13 +276,31 @@ type PropsCartao = {
   disciplina?: Disciplina | null;
   dias: string[];
   hoje: string;
+  /** Posição no dia (só para tarefas que já estão num dia da semana). */
+  posicao?: { indice: number; total: number };
+  arrastando: boolean;
+  aoComecarArrastar: () => void;
+  aoTerminarArrastar: () => void;
   aoAbrir: (tarefa: Tarefa) => void;
   aoAlternar: (tarefa: Tarefa) => void;
-  aoMover: (tarefa: Tarefa, dia: string | null) => void;
+  aoEscolherDia: (tarefa: Tarefa, dia: string | null) => void;
+  aoMoverNoDia: (tarefa: Tarefa, passo: -1 | 1) => void;
 };
 
-function CartaoPlanner({ tarefa, disciplina, dias, hoje, aoAbrir, aoAlternar, aoMover }: PropsCartao) {
-  const [arrastando, setArrastando] = useState(false);
+function CartaoPlanner({
+  tarefa,
+  disciplina,
+  dias,
+  hoje,
+  posicao,
+  arrastando,
+  aoComecarArrastar,
+  aoTerminarArrastar,
+  aoAbrir,
+  aoAlternar,
+  aoEscolherDia,
+  aoMoverNoDia,
+}: PropsCartao) {
   const cor = disciplina?.cor ?? COR_SEM_DISCIPLINA;
   const concluida = tarefa.status === 'concluida';
   const atrasada = tarefaAtrasada(tarefa, hoje);
@@ -223,17 +308,20 @@ function CartaoPlanner({ tarefa, disciplina, dias, hoje, aoAbrir, aoAlternar, ao
   const detalhe = [disciplina?.nome, tarefa.prioridade === 'alta' && !concluida ? 'Prioridade alta' : null].filter(Boolean).join(' · ');
   // O seletor oferece os dias da semana exibida, mais o dia atual se for de outra semana.
   const opcoes = tarefa.planejada_para && !dias.includes(tarefa.planejada_para) ? [tarefa.planejada_para, ...dias] : dias;
+  // Com mouse, os controles aparecem ao passar por cima ou focar; no toque, ficam sempre visíveis.
+  const controles = 'pointer-fine:hidden pointer-fine:group-hover:flex pointer-fine:group-focus-within:flex';
 
   return (
     <div
+      data-cartao={tarefa.id}
       draggable
       onDragStart={(e) => {
         e.dataTransfer.setData('text/plain', tarefa.id);
         e.dataTransfer.effectAllowed = 'move';
-        setArrastando(true);
+        aoComecarArrastar();
       }}
-      onDragEnd={() => setArrastando(false)}
-      className={`group flex items-start gap-2 rounded-lg px-2 py-2 transition-[filter,opacity] hover:brightness-95 lg:cursor-grab ${
+      onDragEnd={aoTerminarArrastar}
+      className={`group flex items-start gap-2 rounded-lg px-2 py-2 transition-[filter,opacity] hover:brightness-95 pointer-fine:cursor-grab md:gap-1 md:px-1 md:py-1.5 lg:gap-2 lg:px-2 lg:py-2 ${
         arrastando ? 'opacity-50' : ''
       }`}
       style={{ backgroundColor: comTransparencia(cor, concluida ? 0.06 : 0.12), boxShadow: `inset 3px 0 0 ${cor}` }}
@@ -252,34 +340,62 @@ function CartaoPlanner({ tarefa, disciplina, dias, hoje, aoAbrir, aoAlternar, ao
       </button>
       <div className="min-w-0 flex-1">
         <button type="button" onClick={() => aoAbrir(tarefa)} className="block w-full text-left">
-          <span className={`block text-sm leading-5 font-medium break-words ${concluida ? 'text-stone-400 line-through' : 'text-stone-800'}`}>
+          <span
+            className={`block text-sm leading-5 font-medium break-words hyphens-auto md:text-xs md:leading-4 lg:text-sm lg:leading-5 ${
+              concluida ? 'text-stone-400 line-through' : 'text-stone-800'
+            }`}
+          >
             {tarefa.titulo}
           </span>
-          {detalhe && <span className="block text-xs text-stone-500 [overflow-wrap:anywhere]">{detalhe}</span>}
+          {detalhe && <span className="block text-xs break-words text-stone-500 hyphens-auto md:text-[11px] lg:text-xs">{detalhe}</span>}
           {tarefa.prazo && !concluida && (
             <span className={`mt-0.5 inline-flex items-center gap-1 text-xs ${atrasada ? 'font-medium text-red-600' : 'text-stone-500'}`}>
-              <CalendarClock aria-hidden className="size-3" />
+              <CalendarClock aria-hidden className="size-3 shrink-0" />
               Prazo {formatarData(tarefa.prazo)}
               {atrasada && ' · atrasada'}
             </span>
           )}
-          {ficouParaTras && (
-            <span className="mt-0.5 block text-xs text-amber-700">Planejada para {formatarData(tarefa.planejada_para!)}</span>
-          )}
+          {ficouParaTras && <span className="mt-0.5 block text-xs text-amber-700">Planejada para {formatarData(tarefa.planejada_para!)}</span>}
         </button>
-        <select
-          aria-label={`Dia planejado de ${tarefa.titulo}`}
-          value={tarefa.planejada_para ?? SEM_DIA}
-          onChange={(e) => aoMover(tarefa, e.target.value === SEM_DIA ? null : e.target.value)}
-          className="mt-1.5 h-7 w-full max-w-44 rounded-md border border-stone-200 bg-white/80 px-1.5 text-xs text-stone-600 focus:border-vinho-500 focus:ring-2 focus:ring-vinho-100 focus:outline-none lg:hidden lg:group-focus-within:block lg:group-hover:block"
-        >
-          <option value={SEM_DIA}>Sem dia</option>
-          {opcoes.map((d) => (
-            <option key={d} value={d}>
-              {formatarData(d, "EEE, d 'de' MMM")}
-            </option>
-          ))}
-        </select>
+        <div className={`mt-1.5 flex flex-wrap items-center gap-1 ${controles}`}>
+          <select
+            aria-label={`Dia planejado de ${tarefa.titulo}`}
+            value={tarefa.planejada_para ?? SEM_DIA}
+            onChange={(e) => aoEscolherDia(tarefa, e.target.value === SEM_DIA ? null : e.target.value)}
+            className="h-7 min-w-0 flex-1 basis-24 rounded-md border border-stone-200 bg-white/80 px-1 text-xs text-stone-600 focus:border-vinho-500 focus:ring-2 focus:ring-vinho-100 focus:outline-none"
+          >
+            <option value={SEM_DIA}>Sem dia</option>
+            {opcoes.map((d) => (
+              <option key={d} value={d}>
+                {formatarData(d, "EEE, d 'de' MMM")}
+              </option>
+            ))}
+          </select>
+          {posicao && posicao.total > 1 && (
+            <span className="flex">
+              <button
+                type="button"
+                onClick={() => aoMoverNoDia(tarefa, -1)}
+                disabled={posicao.indice === 0}
+                aria-label={`Subir "${tarefa.titulo}" no dia`}
+                title="Subir"
+                className="flex size-7 items-center justify-center rounded-md text-stone-500 hover:bg-white/80 hover:text-stone-800 disabled:opacity-30"
+              >
+                <ArrowUp aria-hidden className="size-3.5" />
+              </button>
+              <button
+                type="button"
+                onClick={() => aoMoverNoDia(tarefa, 1)}
+                disabled={posicao.indice === posicao.total - 1}
+                aria-label={`Descer "${tarefa.titulo}" no dia`}
+                title="Descer"
+                className="flex size-7 items-center justify-center rounded-md text-stone-500 hover:bg-white/80 hover:text-stone-800 disabled:opacity-30"
+              >
+                <ArrowDown aria-hidden className="size-3.5" />
+              </button>
+            </span>
+          )}
+        </div>
       </div>
     </div>
   );

@@ -54,7 +54,7 @@ export type DadosConteudo = Pick<Conteudo, 'titulo' | 'disciplina_id'> &
   Partial<Pick<Conteudo, 'data_prevista' | 'status' | 'observacoes'>>;
 
 export type DadosTarefa = Pick<Tarefa, 'titulo'> &
-  Partial<Pick<Tarefa, 'disciplina_id' | 'descricao' | 'prazo' | 'planejada_para' | 'prioridade' | 'status'>>;
+  Partial<Pick<Tarefa, 'disciplina_id' | 'descricao' | 'prazo' | 'planejada_para' | 'ordem_planner' | 'prioridade' | 'status'>>;
 
 export type DadosAtividade = Pick<Atividade, 'titulo' | 'categoria_id'> &
   Partial<

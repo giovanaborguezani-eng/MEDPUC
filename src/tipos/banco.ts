@@ -758,6 +758,7 @@ export type Database = {
           descricao: string | null
           disciplina_id: string | null
           id: string
+          ordem_planner: number | null
           planejada_para: string | null
           prazo: string | null
           prioridade: Database["public"]["Enums"]["prioridade_tarefa"]
@@ -772,6 +773,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id?: string | null
           id?: string
+          ordem_planner?: number | null
           planejada_para?: string | null
           prazo?: string | null
           prioridade?: Database["public"]["Enums"]["prioridade_tarefa"]
@@ -786,6 +788,7 @@ export type Database = {
           descricao?: string | null
           disciplina_id?: string | null
           id?: string
+          ordem_planner?: number | null
           planejada_para?: string | null
           prazo?: string | null
           prioridade?: Database["public"]["Enums"]["prioridade_tarefa"]
@@ -893,6 +896,10 @@ export type Database = {
           isOneToOne: false
           isSetofReturn: true
         }
+      }
+      planejar_tarefas: {
+        Args: { p_dia: string; p_ids: string[] }
+        Returns: undefined
       }
       reordenar_conteudos: { Args: { p_ids: string[] }; Returns: undefined }
     }

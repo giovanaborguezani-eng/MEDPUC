@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Tarefa } from '../tipos/dominio';
-import { paraPlanejar, tarefasPorDia } from './planner';
+import { paraPlanejar, posicionar, tarefasPorDia } from './planner';
 
 function tarefa(parcial: Partial<Tarefa>): Tarefa {
   return {
@@ -11,6 +11,7 @@ function tarefa(parcial: Partial<Tarefa>): Tarefa {
     descricao: null,
     prazo: null,
     planejada_para: null,
+    ordem_planner: null,
     prioridade: 'media',
     status: 'pendente',
     concluida_em: null,
@@ -52,5 +53,24 @@ describe('planner semanal', () => {
       HOJE,
     );
     expect(lista.map((t) => t.titulo)).toEqual(['Ficou para trás', 'Sem dia']);
+  });
+
+  it('a ordem escolhida pelo aluno vem antes da ordem automática', () => {
+    const mapa = tarefasPorDia(
+      [
+        tarefa({ titulo: 'Alta sem posição', planejada_para: '2026-11-04', prioridade: 'alta' }),
+        tarefa({ titulo: 'Segunda', planejada_para: '2026-11-04', ordem_planner: 1 }),
+        tarefa({ titulo: 'Primeira', planejada_para: '2026-11-04', ordem_planner: 0, prioridade: 'baixa' }),
+      ],
+      SEMANA,
+    );
+    expect(mapa.get('2026-11-04')!.map((t) => t.titulo)).toEqual(['Primeira', 'Segunda', 'Alta sem posição']);
+  });
+
+  it('posiciona uma tarefa no dia, vinda do mesmo dia ou de outro', () => {
+    expect(posicionar(['a', 'b', 'c'], 'c', 0)).toEqual(['c', 'a', 'b']);
+    expect(posicionar(['a', 'b', 'c'], 'a', 2)).toEqual(['b', 'c', 'a']);
+    expect(posicionar(['a', 'b'], 'x', 1)).toEqual(['a', 'x', 'b']);
+    expect(posicionar(['a', 'b'], 'x', 99)).toEqual(['a', 'b', 'x']);
   });
 });

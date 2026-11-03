@@ -37,3 +37,8 @@ export async function atualizarTarefa(id: string, dados: Partial<DadosTarefa>): 
 export async function excluirTarefa(id: string): Promise<void> {
   await resolver(supabase().from('tarefas').delete().eq('id', id));
 }
+
+/** Planner: grava o dia e a ordem das tarefas daquele dia, na ordem dos ids. */
+export async function planejarTarefas(dia: string, ids: string[]): Promise<void> {
+  await resolver(supabase().rpc('planejar_tarefas', { p_dia: dia, p_ids: ids }));
+}

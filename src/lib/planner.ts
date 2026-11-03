@@ -9,8 +9,14 @@ import type { Tarefa } from '../tipos/dominio';
 
 const PESO_PRIORIDADE = { alta: 0, media: 1, baixa: 2 } as const;
 
-/** Pendentes primeiro, depois por prioridade, prazo e título. */
+/**
+ * Ordem dentro do dia: a posição escolhida pelo aluno vem primeiro; tarefas
+ * ainda sem posição seguem depois, por status, prioridade, prazo e título.
+ */
 export function ordenarDoDia(a: Tarefa, b: Tarefa): number {
+  const posA = a.ordem_planner ?? Number.MAX_SAFE_INTEGER;
+  const posB = b.ordem_planner ?? Number.MAX_SAFE_INTEGER;
+  if (posA !== posB) return posA - posB;
   const concluidaA = a.status === 'concluida' ? 1 : 0;
   const concluidaB = b.status === 'concluida' ? 1 : 0;
   return (
@@ -19,6 +25,16 @@ export function ordenarDoDia(a: Tarefa, b: Tarefa): number {
     (a.prazo ?? '9999-12-31').localeCompare(b.prazo ?? '9999-12-31') ||
     a.titulo.localeCompare(b.titulo, 'pt-BR')
   );
+}
+
+/**
+ * Nova ordem de ids de um dia ao colocar `id` na posição `indice` (contada
+ * sem a própria tarefa). Serve para reordenar no dia e para trazer de outro.
+ */
+export function posicionar(idsDoDia: string[], id: string, indice: number): string[] {
+  const sem = idsDoDia.filter((x) => x !== id);
+  const pos = Math.max(0, Math.min(indice, sem.length));
+  return [...sem.slice(0, pos), id, ...sem.slice(pos)];
 }
 
 /** Tarefas de cada dia da semana exibida (inclusive as concluídas). */

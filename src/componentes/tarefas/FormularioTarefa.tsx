@@ -86,6 +86,7 @@ export function FormularioTarefa({ aberto, aoFechar, tarefa, disciplinaFixa, dia
           descricao: valores.descricao,
           prazo: valores.prazo || null,
           planejada_para: valores.planejada_para || null,
+          ...((valores.planejada_para || null) !== (tarefa?.planejada_para ?? null) && { ordem_planner: null }),
           prioridade: valores.prioridade,
           status: valores.status,
           disciplina_id: valores.disciplina_id || null,

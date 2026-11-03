@@ -31,6 +31,7 @@ function tarefa(parcial: Partial<Tarefa>): Tarefa {
     descricao: null,
     prazo: null,
     planejada_para: null,
+    ordem_planner: null,
     prioridade: 'media',
     status: 'pendente',
     concluida_em: null,
